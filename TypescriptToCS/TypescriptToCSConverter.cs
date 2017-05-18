@@ -541,11 +541,85 @@ namespace TypescriptToCS
             return value.Length > 512 ? $"___{count++}" : value;
         }
 
+        public string CalibrateSpace (string value)
+        {
+            StringBuilder result = new StringBuilder();
+            bool space = false;
+            bool @return = false;
+            bool currentSpace = false;
+            bool gone = false;
+            const string lineReturns = "\r\n";
+            for (int n = 0; n < value.Length; n++)
+            {
+                currentSpace = false;
+                char item = value[n];
+                space = (currentSpace = MTypescriptParser.spaceChars.Contains(item)) ? true : space;
+                @return = lineReturns.Contains(item) ? true : @return;
+                if (currentSpace)
+                    continue;
+                if (space)
+                {
+                    if (gone || @return)
+                        result.Append(@return ? "\n" : " ");
+                    space = false;
+                    @return = false;
+                }
+                result.Append(item);
+                gone = true;
+            }
+            return result.ToString();
+        }
+
+        public void Convert (Details details)
+        {
+            void NewLine()
+            {
+                WriteNewLine();
+                Result.Append("/// ");
+            }
+            void WriteString (string toWrite)
+            {
+                string[] split = CalibrateSpace(toWrite).Split('\n');
+                for (int n = 0; n < split.Length; n++)
+                {
+                    var item = split[n];
+                    Result.Append(item);
+                    NewLine();
+                }
+            }
+            Result.Append("/// ");
+            if (details.summary != null)
+            {
+                Result.Append("<summary>");
+                NewLine();
+                WriteString(details.summary);
+                Result.Append("</summary>");
+            }
+            foreach (var item in details.paramDescription)
+            {
+                Result.Append("<param name=\"");
+                Result.Append(item.Key);
+                Result.Append("\">");
+                NewLine();
+                WriteString(item.Value);
+                Result.Append("</param>");
+            }
+            if (details.returns != null)
+            {
+                Result.Append("<returns>");
+                NewLine();
+                WriteString(details.summary);
+                Result.Append("</returns>");
+            }
+            WriteNewLine();
+        }
+
         public void Convert(TypeDeclaration @class)
         {
             if (@class.details != null)
             {
-
+                if (@class.details.paramDescription.Count > 0 || @class.details.summary != null || @class.details.returns != null)
+                    Convert(@class.details);
             }
             if (@class.kind == TypeDeclaration.Kind.Enum)
             {
@@ -626,6 +700,8 @@ namespace TypescriptToCS
                     }
             foreach (var field in fields)
             {
+                if (field.details?.paramDescription.Count > 0 || field.details?.returns != null || field.details?.summary != null)
+                    Convert(field.details);
                 if (field.UsesNameAttribute)
                     UseNameAttribute(field.orgName);
                 string upperName = ConvertToUpperCase(field.name);
@@ -660,6 +736,8 @@ namespace TypescriptToCS
                 methods.AddRange(@class.methods);
             foreach (var method in methods)
             {
+                if (method.Details?.returns != null || method.Details?.summary != null || method.Details?.paramDescription?.Count > 0)
+                    Convert(method.Details);
                 string upperName = ConvertToUpperCase(method.Name);
                 string template = null;
                 if ((method.orgName == "new" || method.orgName == "") && string.IsNullOrEmpty(template))

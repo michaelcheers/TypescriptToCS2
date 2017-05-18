@@ -14,5 +14,6 @@ namespace TypescriptParser
         public bool Readonly;
         public string orgName;
         public Type ExplicitString;
+        public Details Details;
     }
 }

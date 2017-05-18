@@ -212,7 +212,7 @@ namespace TypescriptToCS
 ");
             converter.Convert(globalNamespace, false);
             Console.WriteLine("Writing...");
-            File.WriteAllText("result.cs", converter.Result.ToString());
+            File.WriteAllText($"{Path.GetFileNameWithoutExtension(location)}.cs", converter.Result.ToString());
             Console.WriteLine("Exiting...");
         }
     }

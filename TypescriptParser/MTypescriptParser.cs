@@ -36,7 +36,6 @@ namespace TypescriptParser
             bool result = CurrentIs(value);
             if (result)
                 GoForwardOne();
-            SkipEmpty();
             return result;
         }
 
@@ -61,15 +60,60 @@ namespace TypescriptParser
                 }
                 GoForwardOne();
             }
-            SkipEmpty();
             return true;
+        }
+
+        public Details ParseComment()
+        {
+            if (LastComment == null)
+                return new Details();
+            MTypescriptParser parser = new MTypescriptParser();
+            parser.ParseString = LastComment;
+            Details result = new Details();
+            string header = null;
+            string paramName = null;
+            while (true)
+            {
+                if (parser.CurrentIs('\0'))
+                    return result;
+                parser.GoForwardIf('*');
+                if (!parser.GoForwardIf('@'))
+                {
+                    parser.CreateRestorePoint();
+                    parser.InSkipEmpty = true;
+                    parser.SkipUntil(LastComment.Substring(parser.index).Contains('@') ? '@' : '\0');
+                    parser.InSkipEmpty = false;
+                    while (parser.CurrentIs('\0'))
+                        parser.index--;
+                    int oldIndex = parser.restorePoints.Pop();
+                    string g = LastComment.Substring(oldIndex, parser.index - oldIndex - 1).Replace("*", "");
+                    switch (header)
+                    {
+                        case "param":
+                            result.paramDescription.Add(paramName, g);
+                            break;
+                        case "returns":
+                        case "return":
+                            result.returns = g;
+                            break;
+                        case null:
+                            result.summary = g;
+                            break;
+                    }
+                }
+                parser.GoForwardIf('*');
+                header = parser.GetWord();
+                paramName = null;
+                if (header == "param")
+                    paramName = parser.GetWord();
+            }
         }
 
         public char CharAt (int index_) => index_ < 0 || index_ >= ParseString.Length ? '\0' : ParseString[index_];
         public void GoForwardOne() => GoForward(1);
         public void GoForward(int length) => index += length;
-        public string spaceChars = " \t\r\n";
-        public string wordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$1234567890.";
+        public const string spaceChars = " \t\r\n";
+        public const string wordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$1234567890.";
 
         public string GetWord()
         {
@@ -95,6 +139,8 @@ namespace TypescriptParser
             GoForward(value.Length);
         }
 
+        public string LastComment;
+
         private bool SkipEmpty(bool skipComments = true)
         {
             if (InSkipEmpty)
@@ -108,7 +154,19 @@ namespace TypescriptParser
                     if (GoForwardIf('/'))
                         SkipUntil('\n');
                     else if (GoForwardIf('*'))
+                    {
+                        bool docs;
+                        if (docs = CurrentIs("*"))
+                            CreateRestorePoint();
                         SkipUntil("*/");
+                        if (docs)
+                        {
+                            int orgIndex = restorePoints.Pop();
+                            int nextIndex = index - 2;
+                            string subString = ParseString.Substring(orgIndex, nextIndex - orgIndex + 1);
+                            LastComment = subString;
+                        }
+                    }
                     else
                         throw new Exception();
                 }
@@ -201,6 +259,7 @@ namespace TypescriptParser
                             word = word.Substring(1);
                     bool optional = GoForwardIf('?');
                     var generics = ParseGenericDeclaration();
+                    Details details = ParseComment();
                     if (GoForwardIf('(') || indexer)
                     {
                         Inherit.Clear();
@@ -228,7 +287,8 @@ namespace TypescriptParser
                             Static = @static,
                             Indexer = indexer,
                             GenericDeclaration = generics,
-                            Readonly = @readonly
+                            Readonly = @readonly,
+                            Details = details
                         });
                     }
                     else if (GoForwardIf(':'))
@@ -242,15 +302,18 @@ namespace TypescriptParser
                             type = ParseType(),
                             @readonly = @readonly,
                             @static = @static,
-                            optional = optional
+                            optional = optional,
+                            details = details
                         });
                     }
-                    GoForwardIf(';');
+                    else throw new Exception();
                     GoForwardIf(',');
+                    GoForwardIf(';');
                     //if (!GoForwardIf(';'))
                     //    throw new Exception();
                     break;
             }
+            LastComment = null;
             return false;
         }
         string TypeDeclName;
@@ -612,7 +675,7 @@ namespace TypescriptParser
                     case "function":
                     case "var":
                     case "let":
-                        index -= word.Length;
+                        GoForward(-word.Length);
                         currentClass = currentNamespace.GlobalClass;
                         if (ParseClassLine())
                             throw new Exception();
@@ -655,7 +718,10 @@ namespace TypescriptParser
                             do implements.Add(ParseType());
                             while (GoForwardIf(','));
                         }
-                        currentNamespace.classes.Add(ParseClass(interfaceName, genericDeclaration2, implements, word == "interface"));
+                        Details details = ParseComment();
+                        TypeDeclaration @class;
+                        currentNamespace.classes.Add(@class = ParseClass(interfaceName, genericDeclaration2, implements, word == "interface"));
+                        @class.details = details;
                         break;
                     case "enum":
                         string enumName = GetWord();
@@ -691,6 +757,7 @@ namespace TypescriptParser
                             currentNamespace = currentNamespace.UpNamespace;
                         break;
                 }
+                LastComment = null;
             }
         }
     }
