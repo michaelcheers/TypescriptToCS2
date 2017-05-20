@@ -232,16 +232,16 @@ namespace TypescriptParser
                 case "static":
                 case "let":
                 case "var":
-                    if (CurrentIs(':') || CurrentIs('('))
+                    if (CurrentIs(':') || CurrentIs('(') || CurrentIs('?'))
                         goto default;
                     @static = true;
                     goto Back;
                 case "declare":
-                    if (CurrentIs(':') || CurrentIs('('))
+                    if (CurrentIs(':') || CurrentIs('(') || CurrentIs('?'))
                         goto default;
                     goto Back;
                 case "readonly":
-                    if (CurrentIs(':') || CurrentIs('('))
+                    if (CurrentIs(':') || CurrentIs('(') || CurrentIs('?'))
                         goto default;
                     @readonly = true;
                     goto Back;
@@ -520,10 +520,8 @@ namespace TypescriptParser
                     else if (CurrentIs('{'))
                     {
                         string org = TypeDeclName;
-                        TypeDeclaration oldClass = currentClass;
                         TypeDeclaration created;
-                        currentClass.nested.Add(created = ParseClass(org, new GenericDeclaration(), new List<Type>(), true));
-                        currentClass = oldClass;
+                        (currentClass?.nested ?? currentNamespace.classes).Add(created = ParseClass(org, new GenericDeclaration(), new List<Type>(), true));
                         return new NamedType
                         {
                             Generics = new Generics

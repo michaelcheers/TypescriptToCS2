@@ -11,9 +11,10 @@ namespace TypescriptToCS
     {
         public int Indent = 0;
         public StringBuilder Result = new StringBuilder();
-        public TypescriptToCSConverter ()
+        public ConversionSoftware conversionSoftware;
+        public TypescriptToCSConverter (ConversionSoftware conversionSoftware)
         {
-
+            this.conversionSoftware = conversionSoftware;
         }
         public void WriteNewLine ()
         {
@@ -515,7 +516,10 @@ namespace TypescriptToCS
         => value;
         public void UseNameAttribute (string name)
         {
-            Result.Append($"[Name(\"{name}\")]");
+            if (conversionSoftware == ConversionSoftware.DuoCode)
+                Result.Append($"[Js(Name=\"{name}\")]");
+            else
+                Result.Append($"[Name(\"{name}\")]");
             WriteNewLine();
         }
 
@@ -626,7 +630,7 @@ namespace TypescriptToCS
                 ConvertAsEnum(@class);
                 return;
             }
-            Result.Append("[External]");
+            Result.Append(conversionSoftware == ConversionSoftware.Bridge ? "[External]" : "[Js(Extern=true)]");
             WriteNewLine();
             if (@class.name == "Global")
             {
@@ -766,10 +770,12 @@ namespace TypescriptToCS
                     Result.Append(Convert(method.ExplicitString));
                     Result.Append(".");
                 }
-                Result.Append(method.Indexer ? "this" : upperName);
+                if (method.Name != "constructor")
+                    Result.Append(method.Indexer ? "this" : upperName);
                 if (method.GenericDeclaration?.Generics?.Count > 0)
                     Convert1(method.GenericDeclaration);
-                Result.Append(" ");
+                if (method.Name != "constructor")
+                    Result.Append(" ");
                 Result.Append(method.Indexer ? '[' : '(');
                 Result.Append(Convert(method.Arguments));
                 if (method.Indexer)

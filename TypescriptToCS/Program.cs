@@ -8,12 +8,26 @@ using TypescriptParser;
 
 namespace TypescriptToCS
 {
+    public enum ConversionSoftware
+    {
+        DuoCode,
+        Bridge
+    }
     class Program
     {
         static void Main(string[] args)
         {
             Console.WriteLine("Starting...");
             string location = args.Length > 0 ? args[0] : Console.ReadLine();
+            const string argStart = "--converter:";
+            string converterV = args.FirstOrDefault(v => v.StartsWith(argStart));
+            if (converterV == null)
+                Console.WriteLine(@"What software would you like to convert for?
+Currently Supported:
+Bridge,
+DuoCode");
+            string converterValue = converterV == null ? Console.ReadLine() : converterV.Substring(argStart.Length);
+            ConversionSoftware conversionSoftware = (ConversionSoftware)Enum.Parse(typeof(ConversionSoftware), converterValue);
             string file;
             Console.WriteLine("Reading file...");
             try
@@ -32,7 +46,7 @@ namespace TypescriptToCS
             Console.WriteLine("Parsing...");
             parser.Parse();
             Namespace globalNamespace = parser.globalNamespace;
-            var converter = new TypescriptToCSConverter();
+            var converter = new TypescriptToCSConverter(conversionSoftware);
             globalNamespace.classes.AddRange(new[]
             {
                 new TypeDeclaration
@@ -202,8 +216,9 @@ namespace TypescriptToCS
             converter.RemoveAll(globalNamespace);
             Console.WriteLine("Writing C#...");
             //converter.ConvertUsingStatements(globalNamespace);
+            converter.Result.Append(conversionSoftware == ConversionSoftware.Bridge ? "using Bridge;" : "using DuoCode.Runtime;");
             converter.Result.Append(
-@"using Bridge;
+@"
 //using number = System.Double;
 //using any = Bridge.Union<System.Delegate, object>;
 //using boolean = System.Boolean;
