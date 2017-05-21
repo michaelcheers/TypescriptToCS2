@@ -6,6 +6,7 @@ namespace TypescriptParser
 {
     public class TypeDeclaration
     {
+        public bool IsUnion;
         public List<Field> fields;
         public List<MethodOrDelegate> methods;
         public List<TypeDeclaration> nested;

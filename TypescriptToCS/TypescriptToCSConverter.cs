@@ -45,9 +45,12 @@ namespace TypescriptToCS
         }
         public void Translate (MethodOrDelegate methodOrDelegate)
         {
-            methodOrDelegate.orgName = methodOrDelegate.Name;
-            methodOrDelegate.Name = ConvertToCSValidName(methodOrDelegate.Name, out bool nameAttribute, MethodEmptyName);
-            methodOrDelegate.UsesNameAttribute = nameAttribute;
+            if (string.IsNullOrEmpty(methodOrDelegate.orgName))
+            {
+                methodOrDelegate.orgName = methodOrDelegate.Name;
+                methodOrDelegate.Name = ConvertToCSValidName(methodOrDelegate.Name, out bool nameAttribute, MethodEmptyName);
+                methodOrDelegate.UsesNameAttribute = nameAttribute;
+            }
             if (methodOrDelegate.Arguments?.Parameters?.Count > 0)
             for (int n = 0; n < methodOrDelegate.Arguments.Parameters.Count; n++)
                 methodOrDelegate.Arguments.Parameters[n].Name = ConvertToCSValidName(methodOrDelegate.Arguments.Parameters[n].Name, out bool _temp);
@@ -93,6 +96,12 @@ namespace TypescriptToCS
         }
         public void Translate (MethodOrDelegate methodOrDelegate, TypeDeclaration @class)
         {
+            if (methodOrDelegate?.Name == @class?.name)
+            {
+                methodOrDelegate.orgName = methodOrDelegate.Name;
+                methodOrDelegate.Name = "_" + methodOrDelegate.Name;
+                methodOrDelegate.UsesNameAttribute = true;
+            }
             List<GenericDeclaration> gens = new List<GenericDeclaration>
             {
                 @class?.GenericDeclaration,
@@ -385,7 +394,7 @@ namespace TypescriptToCS
                 case "number":
                     return "System.Double";
                 case "any":
-                    return "Bridge.Union<System.Object, System.Delegate>";
+                    return "System.Object";
                 case "null":
                     return "NullType";
                 case "undefined":
@@ -409,6 +418,38 @@ namespace TypescriptToCS
 
         //public List<TTypeDeclaration> FoundC = new List<TTypeDeclaration>();
         //public TypescriptParser.NamedType Finding;
+
+        public void RemoveDuplicateFields () => globalNamespace.ForeachType(type =>
+            {
+                var oClasses = globalNamespace.FindTypeName(type.name, remove).Where(v => v != type);
+                if (oClasses.Count() == 0)
+                    return;
+                if (type.fields != null)
+                    foreach (var field in type.fields)
+                        foreach (var type_ in oClasses)
+                        {
+                            (var fields, var methods) = type_.FindClassMembers(field.name);
+                            foreach (var field_ in fields)
+                                type_.fields.Remove(field_);
+                            foreach (var method in methods)
+                                type_.methods.Remove(method);
+                        }
+                if (type.methods != null)
+                    foreach (var method in type.methods)
+                        foreach (var type_ in oClasses)
+                        {
+                            (var fields, var methods) = type_.FindClassMembers(method.Name);
+                            foreach (var field_ in fields)
+                                type_.fields.Remove(field_);
+                            foreach (var method_ in methods)
+                                if (method != method_)
+                                {
+                                    if (!ArgumentsEquals(method, method_))
+                                        continue;
+                                    type_.methods.Remove(method_);
+                                }
+                        }
+            });
 
         public void Reference (TypescriptParser.Type @type)
         {
@@ -637,8 +678,8 @@ namespace TypescriptToCS
                 Result.Append("[Name(\"Bridge.global\")]");
                 WriteNewLine();
             }
-            if (@class.UsesNameAttribute && !@class.name.StartsWith("Union_"))
-                UseNameAttribute(@class.orgName);
+            if (@class.UsesNameAttribute)
+                UseNameAttribute(@class.IsUnion ? "Object" : @class.orgName);
             Result.Append($"public {(@class.@static ? "static " : "")}partial {@class.kind.ToString().ToLower()} {@class.name}");
             if (@class.GenericDeclaration?.Generics?.Count > 0)
                 Convert1(@class.GenericDeclaration);
@@ -660,6 +701,8 @@ namespace TypescriptToCS
             List<MethodOrDelegate> methods = new List<MethodOrDelegate>();
             if (@class.fields != null)
                 fields.AddRange(@class.fields);
+            if (@class.methods != null)
+                methods.AddRange(@class.methods);
             if (@class.kind != TypeDeclaration.Kind.Interface)
                 if (@class.implements != null)
                     foreach (var implement in @class.implements)
@@ -736,8 +779,6 @@ namespace TypescriptToCS
                 }
                 WriteNewLine();
             }
-            if (@class.methods != null)
-                methods.AddRange(@class.methods);
             foreach (var method in methods)
             {
                 if (method.Details?.returns != null || method.Details?.summary != null || method.Details?.paramDescription?.Count > 0)
@@ -874,12 +915,22 @@ namespace TypescriptToCS
                     string name = namedType.Name;
                     if (name == "Array`")
                         return Convert(namedType.Generics.Generic[0]) + "[]";
+                    bool any = false;
                     if (namedType.TypeDeclaration != null)
+                    {
                         name = namedType.TypeDeclaration.name;
+                        any = true;
+                    }
                     if (namedType.ReferenceDelegates != null)
+                    {
                         name = namedType.ReferenceDelegates.Name;
+                        any = true;
+                    }
                     if (namedType.ReferenceTTypes != null)
                         return Convert(namedType.ReferenceTTypes.Type);
+                    if (namedType.PreDots?.Length > 0)
+                        if (any)
+                            name = string.Join(".", namedType.PreDots) + "." + name;
                     result += name;
                     if (namedType.Generics?.Generic.Count > 0)
                     {

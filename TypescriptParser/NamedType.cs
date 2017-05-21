@@ -8,6 +8,7 @@ namespace TypescriptParser
 {
     public class NamedType : Type
     {
+        public string[] PreDots;
         public string Name;
         public Generics Generics;
         public TypeDeclaration TypeDeclaration;

@@ -151,7 +151,8 @@ DuoCode");
                         @ref = new TypeDeclaration
                         {
                             name = name,
-                            implements = shared
+                            implements = shared,
+                            IsUnion = true
                         };
                     v.Name = name;
                     v.Generics?.Generic?.Clear();
@@ -175,37 +176,7 @@ DuoCode");
                     typeDeclaration.Name += "_" + delegatesFound.Count;
             }));
             Console.WriteLine("Removing duplicate fields...");
-            globalNamespace.ForeachType(type =>
-            {
-                var oClasses = globalNamespace.FindTypeName(type.name, converter.remove).Where(v => v != type);
-                if (oClasses.Count() == 0)
-                    return;
-                if (type.fields != null)
-                    foreach (var field in type.fields)
-                        foreach (var type_ in oClasses)
-                        {
-                            (var fields, var methods) = type_.FindClassMembers(field.name);
-                            foreach (var field_ in fields)
-                                type_.fields.Remove(field_);
-                            foreach (var method in methods)
-                                type_.methods.Remove(method);
-                        }
-                if (type.methods != null)
-                    foreach (var method in type.methods)
-                        foreach (var type_ in oClasses)
-                        {
-                            (var fields, var methods) = type_.FindClassMembers(method.Name);
-                            foreach (var field_ in fields)
-                                type_.fields.Remove(field_);
-                            foreach (var method_ in methods)
-                                if (method != method_)
-                                {
-                                    if (!converter.ArgumentsEquals(method, method_))
-                                        continue;
-                                    type_.methods.Remove(method_);
-                                }
-                        }
-            });
+            converter.RemoveDuplicateFields();
             Console.WriteLine("Translating...");
             List<TypeDeclaration> toAdd = new List<TypeDeclaration>();
             globalNamespace.ForeachType(v => toAdd.AddRange(converter.Translate(v)));

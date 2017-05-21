@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace TypescriptParser
 {
@@ -57,21 +58,26 @@ namespace TypescriptParser
             List<TypeDeclaration> typesFound = new List<TypeDeclaration>();
             List<TTypeDeclaration> tTypesFound = new List<TTypeDeclaration>();
             List<MethodOrDelegate> delegatesFound = new List<MethodOrDelegate>();
+            string[] dots = finding.Name.Split('.');
+            string[] preDots = new string[dots.Length - 1];
+            Array.Copy(dots, preDots, dots.Length - 1);
+            finding.PreDots = preDots;
+            string shortName = dots.Last();
             ForeachType(@class =>
             {
                 if (@class.GenericDeclaration?.Generics?.Count == finding.Generics?.Generic?.Count)
-                    if (@class.name == finding.Name)
+                    if (@class.name == shortName)
                         typesFound.Add(@class);
             });
             ForeachType(@delegate =>
             {
                 if ((finding.Generics?.Generic?.Count ?? 0) == (@delegate.GenericDeclaration?.Generics?.Count ?? 0))
-                    if (@delegate.Name == finding.Name)
+                    if (@delegate.Name == shortName)
                         delegatesFound.Add(@delegate);
             });
             ForeachType(tType =>
             {
-                if (tType.Name == finding.Name)
+                if (tType.Name == shortName)
                     tTypesFound.Add(tType);
             });
             return (typesFound, tTypesFound, delegatesFound);

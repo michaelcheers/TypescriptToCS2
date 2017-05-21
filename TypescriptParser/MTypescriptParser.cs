@@ -521,7 +521,9 @@ namespace TypescriptParser
                     {
                         string org = TypeDeclName;
                         TypeDeclaration created;
+                        var old = currentClass;
                         (currentClass?.nested ?? currentNamespace.classes).Add(created = ParseClass(org, new GenericDeclaration(), new List<Type>(), true));
+                        currentClass = old;
                         return new NamedType
                         {
                             Generics = new Generics
