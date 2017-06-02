@@ -22,12 +22,16 @@ namespace TypescriptParser
             kind = TypeDeclaration.Kind.Class,
             @static = true
         };
+
+        public Namespace() { GlobalClass.upperNamespace = this; }
+
         public string name;
         public Namespace UpNamespace;
 
-        public void ForeachType (Action<TypeDeclaration> @do)
+        public void ForeachType (Action<TypeDeclaration> @do, bool nested = true)
         {
-            namespaces?.ForEach(v => v.ForeachType(@do));
+            if (nested)
+                namespaces?.ForEach(v => v.ForeachType(@do));
             classes?.ForEach(v => v.ForeachType(@do));
         }
 
@@ -43,41 +47,40 @@ namespace TypescriptParser
             delegates?.ForEach(@do);
             ForeachType(v => v.delegates?.ForEach(@do));
         }
-        public List<TypeDeclaration> FindTypeName(string finding, HashSet<TypeDeclaration> remove)
+        public List<TypeDeclaration> FindTypeName(string finding, HashSet<TypeDeclaration> remove, bool nested = true)
         {
             List<TypeDeclaration> result = new List<TypeDeclaration>();
             ForeachType(v =>
             {
                 if (v.name == finding && !remove.Contains(v))
                     result.Add(v);
-            });
+            }, nested);
             return result;
+        }
+        public void ForeachTypeReference (Action<Type> toRun)
+        {
+            ForeachType(v => v.FindTypeReference(toRun));
         }
         public (List<TypeDeclaration> typesFound, List<TTypeDeclaration> tTypesFound, List<MethodOrDelegate> delegatesFound) FindType (NamedType finding, HashSet<TypeDeclaration> remove)
         {
             List<TypeDeclaration> typesFound = new List<TypeDeclaration>();
             List<TTypeDeclaration> tTypesFound = new List<TTypeDeclaration>();
             List<MethodOrDelegate> delegatesFound = new List<MethodOrDelegate>();
-            string[] dots = finding.Name.Split('.');
-            string[] preDots = new string[dots.Length - 1];
-            Array.Copy(dots, preDots, dots.Length - 1);
-            finding.PreDots = preDots;
-            string shortName = dots.Last();
             ForeachType(@class =>
             {
                 if (@class.GenericDeclaration?.Generics?.Count == finding.Generics?.Generic?.Count)
-                    if (@class.name == shortName)
+                    if (@class.name == finding.Name)
                         typesFound.Add(@class);
             });
             ForeachType(@delegate =>
             {
                 if ((finding.Generics?.Generic?.Count ?? 0) == (@delegate.GenericDeclaration?.Generics?.Count ?? 0))
-                    if (@delegate.Name == shortName)
+                    if (@delegate.Name == finding.Name)
                         delegatesFound.Add(@delegate);
             });
             ForeachType(tType =>
             {
-                if (tType.Name == shortName)
+                if (tType.Name == finding.Name)
                     tTypesFound.Add(tType);
             });
             return (typesFound, tTypesFound, delegatesFound);

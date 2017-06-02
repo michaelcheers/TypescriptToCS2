@@ -12,7 +12,7 @@ namespace TypescriptParser
         public List<TypeDeclaration> nested;
         public List<MethodOrDelegate> delegates;
         public List<Type> implements;
-        public bool StringLiteralEnum;
+        public bool IsStringLiteralEnum;
         public GenericDeclaration GenericDeclaration;
         public Details details;
         public string name;
@@ -20,6 +20,7 @@ namespace TypescriptParser
         public Kind kind;
         public bool @static;
         public bool UsesNameAttribute;
+        public Namespace upperNamespace;
 
         public enum Kind
         {
@@ -84,6 +85,24 @@ namespace TypescriptParser
                 });
                 return result;
             }
+        }
+
+        public void FindTypeReference (Action<Type> toRun)
+        {
+            if (methods != null)
+                foreach (var method in methods)
+                {
+                    method.Arguments?.FindTypeReference(toRun);
+                    toRun(method.ReturnType);
+                }
+            fields?.ForEach(v => toRun(v.type));
+            implements?.ForEach(toRun);
+            if (delegates != null)
+                foreach (var @delegate in delegates)
+                {
+                    toRun(@delegate.ReturnType);
+                    @delegate.Arguments?.FindTypeReference(toRun);
+                }
         }
     }
 }

@@ -110,11 +110,23 @@ DuoCode");
                 }
             });
             converter.globalNamespace = globalNamespace;
+            //Console.WriteLine("Dotting...");
+            //globalNamespace.ForeachTypeReference(v =>
+            //{
+            //    NamedType namedType = v as NamedType;
+            //    if (string.IsNullOrEmpty(namedType?.Name))
+            //        return;
+            //    string[] dots = namedType.Name.Split('.');
+            //    string[] preDots = new string[dots.Length - 1];
+            //    Array.Copy(dots, preDots, dots.Length - 1);
+            //    namedType.PreDots = preDots;
+            //    namedType.Name = dots.Last();
+            //});
             //Console.WriteLine("Merging...");
             //converter.MergeEnums(globalNamespace);
             //converter.RemoveAll(globalNamespace);
             Console.WriteLine("Referencing...");
-            globalNamespace.ForeachType((Action<TypeDeclaration>)converter.Reference);
+            globalNamespace.ForeachTypeReference(converter.Reference);
             globalNamespace.ForeachType(v => converter.Reference(v.Type));
             Console.WriteLine("Unioning...");
             parser.Unions.ForEach(v =>

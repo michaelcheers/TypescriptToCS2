@@ -39,8 +39,8 @@ namespace TypescriptToCS
         //}
         public void DeleteUnneededTypes (TypeDeclaration type)
         {
-            if (type.kind == TypeDeclaration.Kind.Enum && type.StringLiteralEnum)
-                if (globalNamespace.FindTypeName(type.name, remove)?.Count > 1)
+            if (type.kind == TypeDeclaration.Kind.Enum && type.IsStringLiteralEnum)
+                if (type.upperNamespace.FindTypeName(type.name, remove, false)?.Count > 1)
                     remove.Add(type);
         }
         public void Translate (MethodOrDelegate methodOrDelegate)
@@ -60,7 +60,8 @@ namespace TypescriptToCS
         {
             @class.orgName = @class.name;
             @class.name = Shorten(ConvertToCSValidName(@class.name, out @class.UsesNameAttribute));
-            @class.UsesNameAttribute = @class.name != @class.orgName;
+            @class.UsesNameAttribute = @class.UsesNameAttribute || @class.name != @class.orgName;
+            @class.implements?.ForEach(v => Cleanse(v, @class.GenericDeclaration, @class));
             List<TypeDeclaration> toAdd = new List<TypeDeclaration>();
             @class.nested?.ForEach(v => toAdd.AddRange(Translate(v)));
             @class.delegates?.ForEach(v => Translate(v, null));
@@ -349,7 +350,7 @@ namespace TypescriptToCS
 
         public void ConvertAsEnum(TypeDeclaration @enum)
         {
-            Result.Append($"[External{(@enum.StringLiteralEnum ? ", Enum(Emit.StringNamePreserveCase)" : "")}]");
+            Result.Append($"[External{(@enum.IsStringLiteralEnum ? ", Enum(Emit.StringNamePreserveCase)" : "")}]");
             WriteNewLine();
             Result.Append($"public enum {@enum.name}");
             WriteNewLine();
@@ -475,31 +476,31 @@ namespace TypescriptToCS
             }
         }
 
-        public void Reference (Arguments arguments)
-        {
-            arguments?.Parameters?.ForEach(v => Reference(v.Type));
-        }
+        //public void Reference (Arguments arguments)
+        //{
+        //    arguments?.Parameters?.ForEach(v => Reference(v.Type));
+        //}
 
-        public void Reference (TypeDeclaration typeDeclaration)
-        {
-            if (typeDeclaration.methods != null)
-                foreach (var method in typeDeclaration.methods)
-                {
-                    Reference(method.Arguments);
-                    Reference(method.ReturnType);
-                }
-            if (typeDeclaration.fields != null)
-                foreach (var field in typeDeclaration.fields)
-                    Reference(field.type);
-            typeDeclaration.implements?.ForEach(Reference);
-            typeDeclaration.delegates?.ForEach(Reference);
-        }
+        //public void Reference (TypeDeclaration typeDeclaration)
+        //{
+        //    if (typeDeclaration.methods != null)
+        //        foreach (var method in typeDeclaration.methods)
+        //        {
+        //            Reference(method.Arguments);
+        //            Reference(method.ReturnType);
+        //        }
+        //    if (typeDeclaration.fields != null)
+        //        foreach (var field in typeDeclaration.fields)
+        //            Reference(field.type);
+        //    typeDeclaration.implements?.ForEach(Reference);
+        //    typeDeclaration.delegates?.ForEach(Reference);
+        //}
 
-        public void Reference (MethodOrDelegate @delegate)
-        {
-            Reference(@delegate.Arguments);
-            Reference(@delegate.ReturnType);
-        }
+        //public void Reference (MethodOrDelegate @delegate)
+        //{
+        //    Reference(@delegate.Arguments);
+        //    Reference(@delegate.ReturnType);
+        //}
 
         public void Cleanse(TypescriptParser.Type type, GenericDeclaration genericDeclaration, TypeDeclaration @class, bool returnType = false)
         {

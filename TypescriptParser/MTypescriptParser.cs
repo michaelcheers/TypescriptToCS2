@@ -193,7 +193,8 @@ namespace TypescriptParser
                 implements = implements,
                 GenericDeclaration = genericDeclaration,
                 name = name,
-                kind = @interface ? TypeDeclaration.Kind.Interface : TypeDeclaration.Kind.Class
+                kind = @interface ? TypeDeclaration.Kind.Interface : TypeDeclaration.Kind.Class,
+                upperNamespace = currentNamespace
             };
             while (true)
                 if (ParseClassLine())
@@ -414,12 +415,12 @@ namespace TypescriptParser
 
         public Type CreateStringLiteralType (string name)
         {
-            string actName = TypeDeclName + "_" + name;
+            string actName = TypeDeclName + "_" + name.Replace('.', '_');
             TypeDeclaration @class;
             (currentClass?.nested ?? currentNamespace.classes).Add(@class = new TypeDeclaration
             {
                 kind = TypeDeclaration.Kind.Enum,
-                StringLiteralEnum = true,
+                IsStringLiteralEnum = true,
                 name = actName,
                 fields = new List<Field>
                 {
@@ -427,7 +428,8 @@ namespace TypescriptParser
                     {
                         name = name
                     }
-                }
+                },
+                upperNamespace = currentNamespace
             });
             return new NamedType
             {
@@ -567,6 +569,9 @@ namespace TypescriptParser
                     }//
                     throw new NotImplementedException();
                 default:
+                    List<string> dotsSplit = word.Split('.').ToList();
+                    string shortName = dotsSplit[dotsSplit.Count - 1];
+                    dotsSplit.RemoveAt(dotsSplit.Count - 1);
                     List<Type> generics = new List<Type>();
                     if (GoForwardIf('<'))
                     {
@@ -578,12 +583,14 @@ namespace TypescriptParser
                     }
                     if (GoForwardIf("is"))
                     {
-                        word = "boolean";
+                        shortName = "boolean";
+                        dotsSplit.Clear();
                         ParseType();
                     }
                     return new NamedType
                     {
-                        Name = word,
+                        Name = shortName,
+                        PreDots = dotsSplit.ToArray(),
                         Generics = new Generics
                         {
                             Generic = generics
@@ -656,6 +663,7 @@ namespace TypescriptParser
                 switch (word)
                 {
                     case "namespace":
+                    case "module":
                         string name = GetWord();
                         if (!GoForwardIf('{'))
                             throw new Exception();
@@ -729,7 +737,8 @@ namespace TypescriptParser
                         {
                             name = enumName,
                             fields = new List<Field>(),
-                            kind = TypeDeclaration.Kind.Enum
+                            kind = TypeDeclaration.Kind.Enum,
+                            upperNamespace = currentNamespace
                         };
                         if (!GoForwardIf('{'))
                             throw new Exception();
