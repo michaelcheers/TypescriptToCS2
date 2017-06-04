@@ -746,6 +746,22 @@ namespace TypescriptToCS
                                             });
                             }
                     }
+            if (@class.kind != TypeDeclaration.Kind.Interface && (@class.methods?.Any(v => v.Name == "constructor") != true) && !@class.@static)
+            {
+                Result.Append($"extern {@class.name}();");
+                WriteNewLine();
+            }
+            if (@class.IsUnion)
+            {
+                var unionType = (NamedType)@class.implements[0];
+                var genericA = unionType.Generics.Generic[0];
+                var genericB = unionType.Generics.Generic[1];
+                Result.Append($"public static extern implicit operator {@class.name}<A, B>(A t);");
+                WriteNewLine();
+                Result.Append($"public static extern implicit operator {@class.name}<A, B>(B t);");
+                WriteNewLine();
+                WriteNewLine();
+            }
             foreach (var field in fields)
             {
                 if (field.details?.paramDescription.Count > 0 || field.details?.returns != null || field.details?.summary != null)

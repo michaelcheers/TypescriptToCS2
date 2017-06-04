@@ -164,10 +164,13 @@ DuoCode");
                         {
                             name = name,
                             implements = shared,
-                            IsUnion = true
+                            IsUnion = true,
+                            GenericDeclaration = new GenericDeclaration
+                            {
+                                Generics = new List<string> {"A", "B"}
+                            }
                         };
                     v.Name = name;
-                    v.Generics?.Generic?.Clear();
                     v.TypeDeclaration = @ref;
                     if (create)
                         globalNamespace.classes.Add(@ref);
