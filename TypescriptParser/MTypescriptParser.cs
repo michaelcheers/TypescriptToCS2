@@ -72,21 +72,23 @@ namespace TypescriptParser
             Details result = new Details();
             string header = null;
             string paramName = null;
-            while (true)
+            while (!parser.CurrentIs('\0'))
             {
-                if (parser.CurrentIs('\0'))
-                    return result;
                 parser.GoForwardIf('*');
                 if (!parser.GoForwardIf('@'))
                 {
-                    parser.CreateRestorePoint();
-                    parser.InSkipEmpty = true;
-                    parser.SkipUntil(LastComment.Substring(parser.index).Contains('@') ? '@' : '\0');
-                    parser.InSkipEmpty = false;
-                    while (parser.CurrentIs('\0'))
-                        parser.index--;
-                    int oldIndex = parser.restorePoints.Pop();
-                    string g = LastComment.Substring(oldIndex, parser.index - oldIndex - 1).Replace("*", "");
+                    string g = string.Empty;
+                    if (!parser.CurrentIs('\0'))
+                    {
+                        parser.CreateRestorePoint();
+                        parser.InSkipEmpty = true;
+                        parser.SkipUntil(LastComment.Substring(parser.index).Contains('@') ? '@' : '\0');
+                        parser.InSkipEmpty = false;
+                        while (parser.CurrentIs('\0'))
+                            parser.index--;
+                        int oldIndex = parser.restorePoints.Pop();
+                        g = LastComment.Substring(oldIndex, parser.index - oldIndex - 1).Replace("*", "");
+                    }
                     switch (header)
                     {
                         case "param":
@@ -104,9 +106,12 @@ namespace TypescriptParser
                 parser.GoForwardIf('*');
                 header = parser.GetWord();
                 paramName = null;
+                if (parser.GoForwardIf('{'))
+                    parser.SkipUntil('}');
                 if (header == "param")
                     paramName = parser.GetWord();
             }
+            return result;
         }
 
         public char CharAt (int index_) => index_ < 0 || index_ >= ParseString.Length ? '\0' : ParseString[index_];
@@ -206,14 +211,14 @@ namespace TypescriptParser
             bool @static = false;
             bool indexer = false;
             Back:
-            bool quoted = CurrentIs('"');
+            bool quoted = CurrentIs('"') || CurrentIs('\'');
             string word;
             if (!quoted)
                 word = GetWord();
             else
             {
                 int oldIdx = index;
-                GoForwardUntilEndBracket('"', '"');
+                GoForwardUntilEndBracket('"', '\'', '"', '\'');
                 word = '\x1' + ParseString.Substring(oldIdx + 1, index - 2 - oldIdx);
             }
             switch (word)
