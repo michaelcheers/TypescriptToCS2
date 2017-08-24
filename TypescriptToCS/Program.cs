@@ -209,6 +209,7 @@ DuoCode");
 //using any = Bridge.Union<System.Delegate, object>;
 //using boolean = System.Boolean;
 #pragma warning disable CS0626
+#pragma warning disable CS0824
 //[assembly: Convention(Notation.LowerCamelCase)]
 ");
             converter.Convert(globalNamespace, false);

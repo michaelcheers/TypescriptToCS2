@@ -676,7 +676,21 @@ namespace TypescriptToCS
             WriteNewLine();
             if (@class.name == "Global")
             {
-                Result.Append("[Name(\"Bridge.global\")]");
+                if (@class.upperNamespace == null)
+                    Result.Append("[Name(\"Bridge.global\")]");
+                else
+                {
+                    Result.Append("[Name(\"");
+                    Namespace current = @class.upperNamespace;
+                    while (current != null)
+                    {
+                        Result.Append(current.name);
+                        Result.Append('.');
+                        current = current.UpNamespace;
+                    }
+                    Result.Remove(Result.Length - 1, 1);
+                    Result.Append("\")]");
+                }
                 WriteNewLine();
             }
             if (@class.UsesNameAttribute)
